@@ -44,9 +44,7 @@
  * supported by libpcap on a given platform.
  */
 #define SCANLOGD_PCAP_FILTER \
-	"tcp and " \
-	"(tcp[13] & 0x02) != 0"
-
+	"(tcp and tcp[13] & 0x2 != 0) or (ip6 and tcp and ip6[53] & 0x2 != 0)"
 /*
  * High port numbers have a lower weight to reduce the frequency of false
  * positives, such as from passive mode FTP transfers.

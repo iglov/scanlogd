@@ -81,8 +81,11 @@ void in_run(void (*process_packet)(struct header *packet, int size))
 		packet_data += hw_size;
 		size = header->caplen - hw_size;
 		
-		if(size <= 0) continue;
+		if(size <= 0 || size < sizeof(struct ip)) continue;
 
-		process_packet((struct header *)packet_data, size);
+		struct ip *ip_header = (struct ip*) packet_data;
+
+		if(ip_header->ip_v == 4)
+			process_packet((struct header *)packet_data, size);
 	}
 }
