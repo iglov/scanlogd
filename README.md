@@ -1,6 +1,12 @@
 scanlogd - detects and logs TCP port scans
 ==========================================
 
+Fork janw-cz
+------------
+This fork fixes libpcap support.
+
+Defaults for libpcap are set to all network interfaces in promiscuous mode. This enables portscan detection on a router for a whole network.
+
 Description
 -----------
 
