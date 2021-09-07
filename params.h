@@ -29,13 +29,13 @@
  * Recent versions of libpcap support magic device name "any" and recent
  * libnids supports magic device name "all".
  */
-#undef SCANLOGD_DEVICE
+#define SCANLOGD_DEVICE			"any"
 
 /*
  * Whether we want scanlogd to set the device into promiscuous mode, for
  * use with libpcap.
  */
-#define SCANLOGD_PROMISC		0
+#define SCANLOGD_PROMISC		1
 
 /*
  * The libpcap filter expression to use when scanlogd is built with libnids
@@ -45,7 +45,7 @@
  */
 #define SCANLOGD_PCAP_FILTER \
 	"tcp and " \
-	"((tcp[13] != 0x10 and tcp[13] != 0x18) or ip[6:2] & 0x3fff != 0)"
+	"(tcp[13] & 0x02) != 0"
 
 /*
  * High port numbers have a lower weight to reduce the frequency of false
