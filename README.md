@@ -7,6 +7,9 @@ This fork fixes libpcap support.
 
 Defaults for libpcap are set to all network interfaces in promiscuous mode. This enables portscan detection on a router for a whole network.
 
+Why not Linux RAW sockets:
+* RAW sockets only receive packets which are not dropped by local Linux firewall (nftables/iptables)
+
 Description
 -----------
 
