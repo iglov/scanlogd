@@ -1,8 +1,8 @@
 CC = gcc
 LD = $(CC)
 RM = rm -f
-CFLAGS = -Wall -O2 -fomit-frame-pointer
-LDFLAGS = -s
+CFLAGS = -Wall -g -Og -fomit-frame-pointer -std=c11
+LDFLAGS = 
 
 PCAP_H = -I/usr/include/pcap
 PCAP_L = -lpcap
@@ -12,7 +12,7 @@ NIDS_L = -L/usr/local/lib -lnids -lnet -lpcap
 
 PROJ = scanlogd
 
-OBJS_COMMON = scanlogd.o
+OBJS_COMMON = main.o hash.o process_ipv4.o
 OBJS = $(OBJS_COMMON) in_linux.o in_nids.o in_pcap.o
 
 default:
@@ -37,7 +37,7 @@ in_pcap.o: params.h in.h
 in_nids.o: params.h in.h
 	$(CC) $(CFLAGS) $(NIDS_H) -c in_nids.c
 
-scanlogd.o: params.h in.h
+main.o: main.h params.h in.h hash.h process_ipv4.h
 in_linux.o: params.h in.h
 
 .c.o:

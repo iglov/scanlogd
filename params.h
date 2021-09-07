@@ -92,4 +92,6 @@
 #define HASH_SIZE			(1 << HASH_LOG)
 #define HASH_MAX			0x10
 
+#define debug_printf(fmt, ...) \
+            do { fprintf(stderr, fmt, ##__VA_ARGS__); } while(0)
 #endif
