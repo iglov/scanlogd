@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 by Solar Designer
+ * Copyright (c) 2021 by janw
  * See LICENSE
  */
 
@@ -14,28 +14,29 @@
 #include <sys/times.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/ip6.h>
 #include <arpa/inet.h>
 
 #include "params.h"
 #include "main.h"
 #include "in.h"
 #include "hash.h"
-#include "process_ipv4.h"
+#include "process_ipv6.h"
 
 #define HF_DADDR_CHANGING		0x01
 #define HF_SPORT_CHANGING		0x02
 #define HF_TOS_CHANGING			0x04
 #define HF_TTL_CHANGING			0x08
 
-static struct hash_table *table_ipv4;
+static struct hash_table *table_ipv6;
 
 /*
  * Information we keep per each source address.
  */
-struct host_ipv4 {
+struct host_ipv6 {
 	clock_t timestamp;		/* Last update time */
 	time_t start;			/* Entry creation time */
-	struct in_addr saddr, daddr;	/* Source and destination addresses */
+	struct in6_addr saddr, daddr;	/* Source and destination addresses */
 	unsigned short sport;		/* Source port */
 	int count;			/* Number of ports in the list */
 	int weight;			/* Total weight of ports in the list */
@@ -47,19 +48,19 @@ struct host_ipv4 {
 	unsigned char flags;		/* HF_ flags bitmask */
 };
 
-void process_ipv4_init()
+void process_ipv6_init()
 {
-	table_ipv4 = hash_create_table(sizeof(struct in_addr), sizeof(struct host_ipv4));
+	table_ipv6 = hash_create_table(sizeof(struct in6_addr), sizeof(struct host_ipv6));
 }
 
 /*
  * Log this port scan.
  */
-static void do_log(struct host_ipv4 *info)
+static void do_log(struct host_ipv6 *info)
 {
 	int limit;
-	char s_saddr[32];
-	char s_daddr[64 + 8 * SCAN_MAX_COUNT];
+	char s_saddr[128];
+	char s_daddr[128 + 8 * SCAN_MAX_COUNT];
 	char s_flags[16];
 	char s_tos[16];
 	char s_ttl[16];
@@ -70,17 +71,19 @@ static void do_log(struct host_ipv4 *info)
 /* We try to log everything we can at first, then remove port numbers one
  * by one if necessary until we fit into the maximum allowed length */
 	limit = info->count;
-prepare:
-
+prepare:;
+	char tmp_addr[INET6_ADDRSTRLEN+1];
 /* Source address and port number, if fixed */
+        inet_ntop(AF_INET6, &(info->saddr), tmp_addr, sizeof(tmp_addr));
 	snprintf(s_saddr, sizeof(s_saddr),
 		(info->flags & HF_SPORT_CHANGING) ? "%s" : "%s:%u",
-		inet_ntoa(info->saddr),
+		tmp_addr,
 		(unsigned int)ntohs(info->sport));
 
 /* Destination address */
+        inet_ntop(AF_INET6, &(info->daddr), tmp_addr, sizeof(tmp_addr));
 	snprintf(s_daddr, sizeof(s_daddr), "%s%s ports ",
-		inet_ntoa(info->daddr),
+		tmp_addr,
 		(info->flags & HF_DADDR_CHANGING) ? " and others," : "");
 
 /* Scanned port numbers */
@@ -141,7 +144,7 @@ prepare:
 /*
  * Log this port scan unless we're being flooded.
  */
-static void safe_log(struct host_ipv4 *info)
+static void safe_log(struct host_ipv6 *info)
 {
 	static clock_t last = 0;
 	static int count = 0;
@@ -160,61 +163,62 @@ static void safe_log(struct host_ipv4 *info)
 /*
  * Process a TCP packet.
  */
-void process_packet_ipv4(struct header *packet, int size)
+void process_packet_ipv6(struct ip6_hdr *header, uint8_t* tcp_header, int size)
 {
-	struct ip *ip;
+	struct ip6_hdr *ip;
 	struct tcphdr *tcp;
-	struct in_addr addr;
+	struct in6_addr addr;
 	unsigned short port;
 	unsigned char flags;
 	struct tms buf;
 	clock_t now;
 	struct hash_item *h_item;
-	struct host_ipv4 *current;
+	struct host_ipv6 *current;
 
-	debug_printf("process_packet size: %d\n", size);
-	if(size < (int)((sizeof(struct ip) + sizeof(struct tcphdr))))
+	debug_printf("process_packet_ipv6 size: %d\n", size);
+	if(size < sizeof(struct tcphdr))
 	//TODO fragments		
 		return;
 
 /* Get the IP and TCP headers */
-	ip = &packet->ip;
-	tcp = (struct tcphdr *)((char *)packet + ((int)ip->ip_hl << 2));
+	ip = header;
+	tcp = (struct tcphdr *)tcp_header;
 
 /* Sanity check */
-	if (ip->ip_p != IPPROTO_TCP || (ip->ip_off & htons(IP_OFFMASK)) ||
-	    (char *)tcp + sizeof(struct tcphdr) > (char *)packet + size)
-		return;
+//	if (ip->ip_p != IPPROTO_TCP || (ip->ip_off & htons(IP_OFFMASK)) ||
+//	    (char *)tcp + sizeof(struct tcphdr) > (char *)packet + size)
+//		return;
 
 /* Get the source address, destination port, and TCP flags */
-	addr = ip->ip_src;
+	addr = ip->ip6_src;
 	port = tcp->th_dport;
 	flags = tcp->th_flags;
 
-	debug_printf("process packet addr: %x\n", addr.s_addr);
+	debug_printf("process packet addr: %0x:%0x:%0x:%0x\n", 
+		addr.s6_addr32[0], addr.s6_addr32[1], addr.s6_addr32[2], addr.s6_addr32[3]);
 /* We're using IP address 0.0.0.0 for a special purpose here, so don't let
  * them spoof us. */
-	if (!addr.s_addr) return;
+//TODO ???	if (!addr.s_addr) return;
 
 /* Use times(2) here not to depend on someone setting the time while we're
  * running; we need to be careful with possible return value overflows. */
 	now = times(&buf);
 
 /* Do we know this source address already? */
-	h_item = hash_find_id(table_ipv4, (uint8_t *)&addr);
+	h_item = hash_find_id(table_ipv6, (uint8_t *)&addr);
 	if(h_item) {
-		current = (struct host_ipv4*) h_item->data;
+		current = (struct host_ipv6*) h_item->data;
 
 		if(!current) {
-			fprintf(stderr, "process_packet_ipv4 - current is NULL\n");
+			fprintf(stderr, "process_packet_ipv6 - current is NULL\n");
 			return;
 		}
-		debug_printf("process_packet_ipv4: found\n");
+		debug_printf("process_packet_ipv6: found\n");
 
 /* We know this address, and the entry isn't too old.  Update it. */
 		if (now - current->timestamp <= scan_delay_threshold &&
 		    now >= current->timestamp) {
-	                debug_printf("process_packet_ipv4: timestamp ok\n");
+	                debug_printf("process_packet_ipv6: timestamp ok\n");
 /* Just update the TCP flags if we've seen this port already */
 			for (int index = 0; index < current->count; index++)
 			if (current->ports[index] == port) {
@@ -237,15 +241,15 @@ void process_packet_ipv4(struct header *packet, int size)
 			current->flags_and &= flags;
 
 /* Specify if destination address, source port, TOS, or TTL are not fixed */
-			if (current->daddr.s_addr != ip->ip_dst.s_addr)
+			if (memcmp(&(current->daddr),&(ip->ip6_dst), sizeof(struct in6_addr)) != 0)
 				current->flags |= HF_DADDR_CHANGING;
 			if (current->sport != tcp->th_sport)
 				current->flags |= HF_SPORT_CHANGING;
-			if (current->tos != ip->ip_tos)
+/*			if (current->tos != ip->ip_tos)
 				current->flags |= HF_TOS_CHANGING;
 			if (current->ttl != ip->ip_ttl)
 				current->flags |= HF_TTL_CHANGING;
-
+*/
 /* Update the total weight */
 				current->weight += (ntohs(port) < 1024) ?
 				PORT_WEIGHT_PRIV : PORT_WEIGHT_HIGH;
@@ -266,7 +270,7 @@ void process_packet_ipv4(struct header *packet, int size)
 /* We know this address, but the entry is outdated.  Mark it unused and
  * remove from the hash table.  We'll allocate a new entry instead since
  * this one might get re-used too soon. */
-		hash_remove(table_ipv4, h_item);
+		hash_remove(table_ipv6, h_item);
 		free(current);
 		free(h_item);
 		h_item = NULL;
@@ -277,27 +281,27 @@ void process_packet_ipv4(struct header *packet, int size)
 	if (flags & TH_ACK) return;
 
 	//TODO check alloc
-	current = (struct host_ipv4*) calloc(1,sizeof(struct host_ipv4));
-	h_item = (struct hash_item*) calloc(1,sizeof(struct hash_item));
+	current = calloc(1,sizeof(struct host_ipv6));
+	h_item = calloc(1,sizeof(struct hash_item));
 
 /* And fill in the fields */
 	current->timestamp = now;
 	current->start = time(NULL);
 	current->saddr = addr;
-	current->daddr = ip->ip_dst;
+	current->daddr = ip->ip6_dst;
 	current->sport = tcp->th_sport;
 	current->count = 1;
 	current->weight = (ntohs(port) < 1024) ?
 		PORT_WEIGHT_PRIV : PORT_WEIGHT_HIGH;
 	current->ports[0] = port;
-	current->tos = ip->ip_tos;
-	current->ttl = ip->ip_ttl;
+	current->tos = 0;//ip->ip_tos;
+	current->ttl = 0; //ip->ip_ttl;
 	current->flags_or = current->flags_and = flags;
 	current->flags = 0;
 
         h_item->data = (uint8_t *) current;
         h_item->id = (uint8_t *) &(current->saddr);
 
-	hash_add(table_ipv4, h_item);
+	hash_add(table_ipv6, h_item);
 }
 

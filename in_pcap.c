@@ -12,7 +12,7 @@ static pcap_t *p;
 
 int in_init(void)
 {
-	char *device;
+	const char *device;
 	char error[PCAP_ERRBUF_SIZE];
 	struct bpf_program filter;
 
@@ -81,7 +81,7 @@ void in_run(void (*process_packet)(struct header *packet, int size))
 		packet_data += hw_size;
 		size = header->caplen - hw_size;
 		
-		if(size <= 0 || size < sizeof(struct ip)) continue;
+		if(size <= 0 || size < (int) sizeof(struct ip)) continue;
 
 		struct ip *ip_header = (struct ip*) packet_data;
 

@@ -18,6 +18,7 @@
 #include "params.h"
 #include "in.h"
 #include "process_ipv4.h"
+#include "process_ipv6.h"
 
 clock_t scan_delay_threshold, log_delay_threshold;
 /*
@@ -87,10 +88,11 @@ int main(void)
 	log_delay_threshold = LOG_DELAY_THRESHOLD * clk_tck;
 
 /* We can drop root now */
-#ifdef SCANLOGD_USER
-	drop_root();
-#endif
-#if 0
+//#ifdef SCANLOGD_USER
+//	drop_root();
+//#endif
+//TODO commmand line
+#ifndef DEBUG
 /* Become a daemon */
 	switch (fork()) {
 	case -1:
@@ -117,10 +119,12 @@ int main(void)
 		if (dev_null_fd >= 3) close(dev_null_fd);
 	}
 #endif
-	process_ipv4_init();
+
+        process_ipv4_init();
+	process_ipv6_init();
 
 /* Let's start */
-	in_run(process_packet_ipv4);
+	in_run(process_packet_ipv4, process_packet_ipv6);
 
 /* We shouldn't reach this */
 	return 1;

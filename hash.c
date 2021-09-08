@@ -30,12 +30,13 @@ struct hash_table {
         struct hash_item_list *hash[HASH_SIZE];   /* Hash: pointers into the list */
         size_t item_data_size;
 	size_t item_id_size;
+	unsigned int total_count;
 };
 
 struct hash_table* hash_create_table(size_t id_size, size_t data_size)
 {
 	struct hash_table *ret = NULL;
-	ret = calloc(1, sizeof(struct hash_table));
+	ret = (struct hash_table*) calloc(1, sizeof(struct hash_table));
 	if(!ret)
 	{
 		fprintf(stderr, "hash_table calloc failed");
@@ -92,7 +93,7 @@ struct hash_item* hash_find_id(struct hash_table *table, uint8_t* id)
 
 	struct hash_item_list *list = table->hash[hash];
 	if(!list) {
-		list = calloc(1, sizeof(struct hash_item_list));
+		list = (struct hash_item_list*) calloc(1, sizeof(struct hash_item_list));
 		table->hash[hash] = list;
 	}
 
@@ -106,7 +107,7 @@ struct hash_item* hash_find_id(struct hash_table *table, uint8_t* id)
 	return current;
 }
 
-void hash_remove(const struct hash_table *table, const struct hash_item *current)
+void hash_remove(struct hash_table *table, struct hash_item *current)
 {
 	if (current) {
                 if (current->next) {
@@ -125,6 +126,8 @@ void hash_remove(const struct hash_table *table, const struct hash_item *current
 
                 if (current->prev)
 			current->prev->next = current->next;
+
+		table->total_count--;
         }
 }
 
@@ -139,21 +142,8 @@ void hash_add(struct hash_table *table, struct hash_item *current)
 	current->next = items->first;
 	items->first = current;
 	items->count++;
+	table->total_count++;
 
-	if(items->count > HASH_MAX) {
-	//Drop the last one
-		const struct hash_item *last = items->last;
-		items->last = last->prev;
-
-		if(last->next != NULL)
-		{
-			fprintf(stderr, "hash_add last->next is not null - hashtable corrupt\n");
-		}
-
-		if(items->last)
-			items->last->next = NULL;
-
-		items->count--;
-	}	
+	//TODO items lifetime
 }
 

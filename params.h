@@ -26,8 +26,7 @@
  * this either if you're using the raw socket interface on Linux instead,
  * or if you'd like to let libpcap autodetect this for you.
  *
- * Recent versions of libpcap support magic device name "any" and recent
- * libnids supports magic device name "all".
+ * Recent versions of libpcap support magic device name "any"
  */
 #define SCANLOGD_DEVICE			"any"
 
@@ -35,7 +34,7 @@
  * Whether we want scanlogd to set the device into promiscuous mode, for
  * use with libpcap.
  */
-#define SCANLOGD_PROMISC		1
+#define SCANLOGD_PROMISC		0
 
 /*
  * The libpcap filter expression to use when scanlogd is built with libnids
@@ -44,7 +43,8 @@
  * supported by libpcap on a given platform.
  */
 #define SCANLOGD_PCAP_FILTER \
-	"(tcp and tcp[13] & 0x2 != 0) or (ip6 and tcp and ip6[53] & 0x2 != 0)"
+	"(ip and tcp and tcp[13] & 0x2 != 0) or (ip6 and tcp and ip6[53] & 0x2 != 0)"
+
 /*
  * High port numbers have a lower weight to reduce the frequency of false
  * positives, such as from passive mode FTP transfers.
@@ -90,8 +90,14 @@
 #define LIST_SIZE			0x100
 #define HASH_LOG			9
 #define HASH_SIZE			(1 << HASH_LOG)
-#define HASH_MAX			0x10
+#define HASH_MAX			0x400
 
+#define DEBUG
+#ifdef DEBUG
 #define debug_printf(fmt, ...) \
             do { fprintf(stderr, fmt, ##__VA_ARGS__); } while(0)
+#else 
+#define debug_printf(fmt, ...)
+#endif
+
 #endif

@@ -38,7 +38,6 @@ void in_run(void (*process_packet)(struct header *packet, int size))
 {
 	struct header packet;
 	int size;
-
 	while (1)
 	if ((size = read(raw, &packet, sizeof(packet))) >= sizeof(packet.ip))
 		process_packet(&packet, size);

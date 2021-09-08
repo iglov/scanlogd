@@ -8,6 +8,7 @@
 #include <netinet/in_systm.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <netinet/ip6.h>
 #include <netinet/tcp.h>
 
 #ifndef IP_MF
@@ -29,6 +30,7 @@ struct header {
 };
 
 extern int in_init(void);
-extern void in_run(void (*process_packet)(struct header *packet, int size));
+extern void in_run(void (*process_packet_ipv4)(struct header *packet, int size),
+		void (*process_packet_ipv6)(struct ip6_hdr *header, uint8_t *tcp_header, int size));
 
 #endif
