@@ -1,16 +1,22 @@
 Summary: A tool to detect and log TCP port scans.
 Name: scanlogd
 Version: 2.2.8
-Release: owl1
+Release: 2%{?dist}
 License: BSD-compatible
 Group: System Environment/Daemons
 URL: http://www.openwall.com/scanlogd/
 Source: ftp://ftp.openwall.com/pub/projects/scanlogd/scanlogd-%version.tar.gz
 Requires(post,preun): chkconfig, grep, shadow-utils
+Requires:       libnet
+Requires:       libnids
+Requires:       libpcap
+BuildRequires:  libnet-devel
+BuildRequires:  libnids-devel
+BuildRequires:  libpcap-devel
 BuildRoot: /override/%name-%version
 
 %description
-scanlogd detects port scans and writes one line per scan via the syslog(3)
+Scanlogd detects port scans and writes one line per scan via the syslog
 mechanism.  If a source address sends multiple packets to different ports
 in a short time, the event will be logged.
 
@@ -18,45 +24,43 @@ in a short time, the event will be logged.
 %setup -q
 
 %build
-%__make linux CFLAGS="-Wall %optflags"
+%__make libnids CFLAGS="-Wall %optflags"
 
 %install
 rm -rf %buildroot
-mkdir -p %buildroot{%_sbindir,%_mandir/man8,/etc/rc.d/init.d}
+mkdir -p %buildroot{%_sbindir,%_unitdir,%_mandir/man8}
 
-install -m 700 scanlogd %buildroot%_sbindir/
-install -m 644 scanlogd.8 %buildroot%_mandir/man8/
-install -m 700 scanlogd.init %buildroot/etc/rc.d/init.d/scanlogd
+%{__install} -m 700 scanlogd %buildroot%_sbindir/
+%{__install} -m 644 scanlogd.8 %buildroot%_mandir/man8/
+%{__install} -m 644 %{_builddir}/%{name}-%{version}/%{name}.service %{buildroot}/%{_unitdir}/%{name}.service
 
 %pre
 grep -q ^scanlogd: /etc/group || groupadd -g 199 scanlogd
 grep -q ^scanlogd: /etc/passwd ||
 	useradd -g scanlogd -u 199 -d / -s /bin/false -M scanlogd
-rm -f /var/run/scanlogd.restart
-if [ $1 -ge 2 ]; then
-	/etc/rc.d/init.d/scanlogd status && touch /var/run/scanlogd.restart || :
-	/etc/rc.d/init.d/scanlogd stop || :
-fi
 
 %post
-/sbin/chkconfig --add scanlogd
-test -f /var/run/scanlogd.restart && /etc/rc.d/init.d/scanlogd start || :
-rm -f /var/run/scanlogd.restart
+%systemd_post %{name}.service
 
 %preun
-if [ $1 -eq 0 ]; then
-	/etc/rc.d/init.d/scanlogd stop || :
-	/sbin/chkconfig --del scanlogd
-fi
+%systemd_preun %{name}.service
+
+%postun
+%systemd_postun %{name}.service
 
 %files
 %defattr(-,root,root)
 %doc LICENSE README.md
 %_sbindir/scanlogd
 %_mandir/man8/scanlogd.8*
-%config /etc/rc.d/init.d/scanlogd
+%_unitdir/%{name}.service
 
 %changelog
+* Tue Sep 21 2021 iglov <iglov@avalon.land> 2.2.8-2
+- Pulled from janw-cz/scanlogd
+- Now RPM will make scanlogd with libnids
+- Made the systemd service file
+
 * Wed Mar 10 2021 Solar Designer <solar-at-owl.openwall.com> 2.2.8-owl1
 - Define _DEFAULT_SOURCE for new glibc, keep _BSD_SOURCE for old glibc
 - Clarify that SCANLOGD_CHROOT directory must be root-owned

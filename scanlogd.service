@@ -1,0 +1,14 @@
+[Unit]
+Description=scanlogd detects port scans and writes one line per scan via the syslog mechanism.
+After=network-online.target syslog.target
+
+[Service]
+Type=forking
+TimeoutStartSec=5
+TimeoutStopSec=5
+Restart=on-failure
+StartLimitBurst=5
+ExecStart=/sbin/scanlogd
+
+[Install]
+WantedBy=multi-user.target
